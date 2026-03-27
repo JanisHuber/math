@@ -1,6 +1,7 @@
 export interface Shape {
   circumference(): number;
   area(): number;
+  encompasses(other: Shape): boolean;
 }
 
 export class Point2D {
@@ -14,12 +15,20 @@ export class Point2D {
       Math.abs(this.x - other.x) ** 2 + Math.abs(this.y - other.y) ** 2,
     );
   }
+
+  isBetweenX(p: Point2D, q: Point2D): boolean {
+    return p.x < this.x && this.x < q.x;
+  }
+
+  isBetweenY(p: Point2D, q: Point2D): boolean {
+    return p.y < this.y && this.y < q.y;
+  }
 }
 
 export class Circle implements Shape {
   constructor(
-    private center: Point2D,
-    private radius: number,
+    public center: Point2D,
+    public radius: number,
   ) {}
 
   circumference(): number {
@@ -33,12 +42,40 @@ export class Circle implements Shape {
   diameter(): number {
     return 2 * this.radius;
   }
+
+  north(): Point2D {
+    return new Point2D(this.center.x, this.center.y + this.radius);
+  }
+
+  south(): Point2D {
+    return new Point2D(this.center.x, this.center.y - this.radius);
+  }
+
+  east(): Point2D {
+    return new Point2D(this.center.x + this.radius, this.center.y);
+  }
+
+  west(): Point2D {
+    return new Point2D(this.center.x - this.radius, this.center.y);
+  }
+
+  encompasses(other: Shape): boolean {
+    if (other instanceof Circle) {
+      return this.center.distanceTo(other.center) + other.radius <= this.radius;
+    }
+    if (other instanceof Rectangle) {
+      return other.corners().every(
+        (corner) => this.center.distanceTo(corner) < this.radius,
+      );
+    }
+    return false;
+  }
 }
 
 export class Rectangle implements Shape {
   constructor(
-    private bottomLeft: Point2D,
-    private topRight: Point2D,
+    public bottomLeft: Point2D,
+    public topRight: Point2D,
   ) {}
 
   circumference(): number {
@@ -51,6 +88,33 @@ export class Rectangle implements Shape {
 
   diagonal(): number {
     return this.bottomLeft.distanceTo(this.topRight);
+  }
+
+  encompasses(other: Shape): boolean {
+    if (other instanceof Rectangle) {
+      return (
+        other.bottomLeft.x >= this.bottomLeft.x &&
+        other.bottomLeft.y >= this.bottomLeft.y &&
+        other.topRight.x <= this.topRight.x &&
+        other.topRight.y <= this.topRight.y
+      );
+    }
+    if (other instanceof Circle) {
+      const points = [other.center, other.north(), other.south(), other.east(), other.west()];
+      return points.every(
+        (p) => p.isBetweenX(this.bottomLeft, this.topRight) && p.isBetweenY(this.bottomLeft, this.topRight),
+      );
+    }
+    return false;
+  }
+
+  corners(): Point2D[] {
+    return [
+      this.bottomLeft,
+      new Point2D(this.topRight.x, this.bottomLeft.y),
+      this.topRight,
+      new Point2D(this.bottomLeft.x, this.topRight.y),
+    ];
   }
 
   private width(): number {
